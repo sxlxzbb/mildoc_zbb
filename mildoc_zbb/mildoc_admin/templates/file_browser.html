@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}文件浏览 - Mildoc 管理后台{% endblock %}
+
+{% block content %}
+<div class="file-browser">
+    <div class="file-browser-header">
+        <div class="breadcrumb">
+            <span class="breadcrumb-item">
+                <a href="{{ url_for('file_browser') }}" class="breadcrumb-link">根目录</a>
+            </span>
+            <span id="breadcrumb-path"></span>
+        </div>
+        <div class="browser-actions">
+            <button id="create-dir-btn" class="create-dir-btn">创建目录</button>
+            <button id="delete-dir-btn" class="delete-dir-btn" style="display: none;">删除目录</button>
+            <button id="upload-btn" class="upload-btn">上传文件</button>
+        </div>
+    </div>
+    
+    <!-- 文件上传对话框 -->
+    <input type="file" id="file-input" multiple style="display: none;" accept="*/*">
+
+    <div class="file-list">
+        <div class="file-list-header">
+            <div class="file-item-name">名称</div>
+            <div class="file-item-size">大小</div>
+            <div class="file-item-modified">修改时间</div>
+        </div>
+        <div id="file-list-content" class="file-list-content">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/file_browser.js') }}"></script>
+{% endblock %} 

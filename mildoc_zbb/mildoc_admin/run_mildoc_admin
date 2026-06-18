@@ -1,0 +1,9 @@
+#!/bin/bash
+echo "Mildoc Admin Starting... "
+
+uv sync
+
+nohup uv run gunicorn --workers 1 --bind 0.0.0.0:8870 admin_app:app >> mildoc_admin.log 2>&1 &
+
+# 调试运行
+# uv run gunicorn --workers 1 --bind 0.0.0.0:8870 admin_app:app

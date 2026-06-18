@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MilDoc 管理后台{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        {% if session.username %}
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">MilDoc 管理后台</h1>
+                <nav class="nav">
+                    <a href="{{ url_for('file_browser') }}" class="nav-link">文件浏览</a>
+                    <div class="user-info">
+                        <span>欢迎，{{ session.username }}</span>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="nav-link logout">退出</a>
+                </nav>
+            </div>
+        </header>
+        {% endif %}
+
+        <main class="main">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html> 
