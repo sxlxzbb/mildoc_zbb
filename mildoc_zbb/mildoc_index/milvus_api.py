@@ -4,7 +4,6 @@ from enum import Enum
 
 from dotenv import load_dotenv
 from pymilvus import MilvusClient, DataType
-from timm.utils import is_primary
 
 from logger.logging import setup_logging
 

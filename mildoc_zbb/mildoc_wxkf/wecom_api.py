@@ -2,8 +2,6 @@ import logging
 import requests
 import time
 
-from fontTools.misc.cython import returns
-
 from config import Config
 from typing import Dict, Optional
 

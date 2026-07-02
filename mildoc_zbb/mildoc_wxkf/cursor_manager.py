@@ -1,9 +1,6 @@
 import logging
 import threading
 import sqlite3
-from typing import Dict, Optional
-
-from sympy import false
 
 from config import Config
 

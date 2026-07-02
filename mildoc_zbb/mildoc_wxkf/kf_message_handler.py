@@ -2,8 +2,6 @@ import logging
 import time
 from typing import Dict
 
-from sqlalchemy.engine import result_tuple
-
 from wecom_api import wecom_api
 from config import Config
 from cursor_manager import cursor_manager
