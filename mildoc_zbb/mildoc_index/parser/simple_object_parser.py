@@ -130,6 +130,10 @@ class SimpleObjectParser:
 
                 logger.info(f"文件大小：{file_size}bytes, ({file_size/1024/1024:.2f}MB)")
 
+                if file_size == 0:
+                    logger.info(f"空文件不处理,{bucket_name}/{object_name},file_size:{file_size}")
+                    return None
+
                 if file_size > max_size:
                     logger.info(f"文件过大 ({file_size / 1024 / 1024:.2f} MB > 512 MB)，跳过解析")
                     return None
