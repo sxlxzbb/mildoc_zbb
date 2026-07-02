@@ -1,0 +1,15 @@
+#!/bin/bash
+echo "Mildoc index Starting... "
+
+uv sync
+
+
+nohup uv run main.py --provider minio --mode listen >> mildoc_index.log 2>&1 &
+
+# 使用阿里云 OSS 作为存储
+# nohup uv run main.py --provider oss --mode listen >> mildoc_index.log 2>&1 &
+
+# 重建索引
+# uv run main.py --provider minio --mode full-refresh
+# 补建索引
+# uv run main.py --provider minio --mode backfill

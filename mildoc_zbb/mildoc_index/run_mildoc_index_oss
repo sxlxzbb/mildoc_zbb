@@ -1,0 +1,10 @@
+#!/bin/bash
+echo "Mildoc index Starting... "
+
+uv sync
+
+# 使用Minio作为存储
+# nohup uv run main.py --provider minio --mode listen >> mildoc_index_minio.log 2>&1 &
+
+# 使用阿里云 OSS 作为存储
+nohup uv run main.py --provider oss --mode listen >> mildoc_index_oss.log 2>&1 &

@@ -412,7 +412,7 @@ def api_delete_file(file_path):
         # 从 MinIO 删除文件
         try:
             minio_client.remove_object(MINIO_BUCKET, file_path)
-            app.logger.info(f"文件删除成功: {file_path}")
+            app.logger.info(f"minio文件删除成功: {file_path}")
 
             # 如果文件在 Milvus 中有索引，也删除索引记录
             try:
@@ -427,9 +427,11 @@ def api_delete_file(file_path):
                     limit=1000
                 )
 
+                app.logger.info(f"已查到文件：{results}")
+
                 if results:
                     # 删除 Milvus 中的记录
-                    ids_to_delete = [str(result['id']) for result in results]
+                    ids_to_delete = [result['id'] for result in results]
                     milvus_client.delete(
                         collection_name=MILVUS_COLLECTION,
                         filter=f'id in {ids_to_delete}'

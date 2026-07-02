@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/mildoc_index/mildoc_index.iml" filepath="$PROJECT_DIR$/mildoc_index/mildoc_index.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mildoc_wxkf/mildoc_wxkf.iml" filepath="$PROJECT_DIR$/mildoc_wxkf/mildoc_wxkf.iml" />
       <module fileurl="file://$PROJECT_DIR$/mildoc_zbb.iml" filepath="$PROJECT_DIR$/mildoc_zbb.iml" />
     </modules>
   </component>
