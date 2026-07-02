@@ -81,6 +81,11 @@ class MinioEventHandler:
             logger.info(f"对象大小: {event_info['object_size']} 字节")
             logger.info(f"内容类型: {event_info['content_type']}")
 
+            content_type = event_info.get('content_type', '')
+            if content_type and content_type == 'application/x-directory':
+                logger.info(f"创建的是目录不处理：{bucket_name}/{object_name}")
+                return
+
             self._process_single_object(bucket_name, object_name, force_update=True)
         except Exception as e:
             logger.error(f"处理对象创建事件异常：{e}")
