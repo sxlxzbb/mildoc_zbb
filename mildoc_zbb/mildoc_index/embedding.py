@@ -1,7 +1,5 @@
 import os
 
-from nltk.chat.zen import responses
-from nltk.corpus import reuters
 from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List
