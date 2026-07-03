@@ -302,7 +302,6 @@ def process_event_message(event, root):
             logger.info(f"已启动客服消息处理线程 - OpenKfId:{open_kfid}")
         else:
             logger.error("客服事件缺少必要参数 - Token或OpenKfId为空")
-
         return None
 
     # 其他事件类型
