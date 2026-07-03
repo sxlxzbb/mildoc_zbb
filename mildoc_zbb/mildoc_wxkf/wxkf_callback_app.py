@@ -283,8 +283,10 @@ def process_event_message(event, root):
         if token and open_kfid:
             # 异步处理客服消息（避免阻塞回调响应）
             import threading
+
             def process_kf_messages():
                 try:
+                    logger.info(f'000000000000000000000')
                     # 延迟导入避免循环导入
                     from kf_message_handler import KfMessageHandler
                     logger.info(f'11111111111111111111')
