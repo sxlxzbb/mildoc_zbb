@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, List, Dict, Any
 from langchain_community.callbacks.manager import get_openai_callback
-from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+# from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 from langchain_milvus import Milvus
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ from rerank_service import get_rerank_service, RerankResponse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-langfuse_handler = LangfuseCallbackHandler()
+# langfuse_handler = LangfuseCallbackHandler()
 
 # 全局RAG服务实例
 _rag_service_instance = None
@@ -345,10 +345,10 @@ class RAGService:
                 # 提示词
                 prompt = self.PROMPT_TEMPLATE.format(context=context, query=query)
 
-                if (Config.LANGFUSE_ENABLE):
-                    anwser = self.llm.invoke(prompt, config={'callbacks':[langfuse_handler]}).content
-                else:
-                    answer = self.llm.invoke(prompt).content
+                # if (Config.LANGFUSE_ENABLE):
+                #     anwser = self.llm.invoke(prompt, config={'callbacks':[langfuse_handler]}).content
+                # else:
+                answer = self.llm.invoke(prompt).content
 
             # 更细文档引用为最终选择的文档
             source_documents = final_docs
