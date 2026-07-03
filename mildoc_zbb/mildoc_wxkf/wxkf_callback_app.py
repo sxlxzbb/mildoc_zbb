@@ -287,8 +287,9 @@ def process_event_message(event, root):
                 try:
                     # 延迟导入避免循环导入
                     from kf_message_handler import KfMessageHandler
+                    logger.info(f'11111111111111111111')
                     kf_handler = KfMessageHandler()
-
+                    logger.info(f'222222222222222222222')
                     # 真正处理消息的函数
                     kf_handler.process_kf_event(token, open_kfid)
                 except Exception as e:
