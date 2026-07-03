@@ -277,8 +277,8 @@ def process_event_message(event, root):
         logger.info("收到微信客服事件，开始处理客服消息")
 
         # 获取Token和OpenKfId
-        token = root.find('Token') if root.find('Token') is not None else ''
-        open_kfid = root.find('OpenKfId') if root.find('OpenKfId') is not None else ''
+        token = root.find('Token').text if root.find('Token') is not None else ''
+        open_kfid = root.find('OpenKfId').text if root.find('OpenKfId') is not None else ''
 
         if token and open_kfid:
             # 异步处理客服消息（避免阻塞回调响应）
