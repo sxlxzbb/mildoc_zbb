@@ -343,7 +343,7 @@ class RAGService:
                 context = '\n\n'.join([doc.page_content for doc in final_docs])
 
                 # 提示词
-                prompt = self.PROMPT_TEMPLATE.format(context=context, query=query)
+                prompt = self.PROMPT_TEMPLATE.format(context=context, question=query)
 
                 # if (Config.LANGFUSE_ENABLE):
                 #     anwser = self.llm.invoke(prompt, config={'callbacks':[langfuse_handler]}).content
@@ -400,7 +400,7 @@ class RAGService:
             )
 
             return RAGResponse(
-                content=anwser if anwser else "抱歉，我无法根据现有信息回答您的问题。",
+                content=answer if answer else "抱歉，我无法根据现有信息回答您的问题。",
                 source_documents=processed_source_docs,
                 token_usage=token_usage,
                 success=True,
@@ -408,7 +408,7 @@ class RAGService:
             )
 
         except Exception as e:
-            logger.error(f"RAG查询服务异常：{e}")
+            logger.error(f"RAG查询服务异常", exc_info=True)
             return RAGResponse(
                 content='',
                 source_documents=[],

@@ -125,7 +125,7 @@ class CursorManager:
 
                     # 使用upsert语法
                     db_cursor.execute('''
-                        insert or replace info kf_cursors(open_kfid, cursor, last_updated, message_count)
+                        insert or replace into kf_cursors(open_kfid, cursor, last_updated, message_count)
                         values (?, ?, strftime('%s', 'now'), 
                         COALESCE((select message_count from kf_cursors where open_kfid = ?), 0) + ?)
                     ''', (open_kfid, cursor, open_kfid, message_count))
