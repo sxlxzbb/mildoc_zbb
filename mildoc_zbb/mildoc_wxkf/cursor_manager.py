@@ -66,7 +66,9 @@ class CursorManager:
         :return: cursor字符串，如果不存在则返回空字符串
         """
         try:
+            logger.info(f"开始获取指定客服账号的cursor,open_kfid:{open_kfid}")
             with self.lock:
+                logger.info(f"开始获取指定客服账号的cursor1,open_kfid:{open_kfid}")
                 with sqlite3.connect(self.db_path) as conn:
                     cursor = conn.cursor()
                     cursor.execute(

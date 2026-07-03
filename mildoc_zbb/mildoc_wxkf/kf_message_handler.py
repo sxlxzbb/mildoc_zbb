@@ -38,6 +38,7 @@ class KfMessageHandler:
             处理是否成功
         """
         try:
+            logger.info(f"process_kf_event start, openkf_id:{open_kfid}")
             # 从持久化存储获取该客服账号的最后cursor
             cursor = cursor_manager.get_cursor(open_kfid)
 
