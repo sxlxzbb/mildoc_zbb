@@ -6,7 +6,7 @@ logger = setup_logging()
 class MarkdownParser(DocumentParser):
     """Markdown文档解析器"""
 
-    def parse(self, data: bytes) -> str:
+    def parse(self, data: bytes, file_name: str = None) -> str:
         """解析Markdown文档,直接返回原始内容"""
         try:
             # 尝试不同的编码

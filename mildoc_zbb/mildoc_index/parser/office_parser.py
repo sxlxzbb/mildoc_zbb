@@ -14,7 +14,7 @@ class OfficeParser(DocumentParser):
         """初始化markitdown实例"""
         self.markitdown = MarkItDown()
 
-    def parse(self, data: bytes) -> str:
+    def parse(self, data: bytes, file_name: str = None) -> str:
         try:
             # 使用BytesIO创建文件类对象
             file_stream = BytesIO(data)

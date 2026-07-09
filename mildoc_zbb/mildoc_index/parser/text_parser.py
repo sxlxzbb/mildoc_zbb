@@ -5,7 +5,7 @@ logger = setup_logging()
 
 class TextParser(DocumentParser):
     """存文本文档解析器"""
-    def parse(self, data: bytes) -> str:
+    def parse(self, data: bytes, file_name: str = None) -> str:
         try:
             # 尝试不同的编码
             encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1']

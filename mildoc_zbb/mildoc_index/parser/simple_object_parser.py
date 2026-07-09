@@ -132,11 +132,11 @@ class SimpleObjectParser:
 
                 if file_size == 0:
                     logger.info(f"空文件不处理,{bucket_name}/{object_name},file_size:{file_size}")
-                    return None
+                    return {}
 
                 if file_size > max_size:
                     logger.info(f"文件过大 ({file_size / 1024 / 1024:.2f} MB > 512 MB)，跳过解析")
-                    return None
+                    return {}
             except Exception as e:
                 logger.info(f"获取对象信息失败:bucket_name:{bucket_name}, object_name:{object_name}, {e}")
                 # 虽然无法获取文件信息，仍然继续尝试解析
@@ -165,7 +165,7 @@ class SimpleObjectParser:
             parser = self._get_parser(content_type)
             if not parser:
                 logger.info(f"警告⚠️：未找到适合 {content_type} 的解析器,bucket_name:{bucket_name}, object_name：{object_name}")
-                return None
+                return {}
 
             # 解析文档内容
             logger.info(f"使用解析器:{parser.__class__.__name__}")
@@ -173,7 +173,7 @@ class SimpleObjectParser:
 
             if not text_content:
                 logger.info(f"警告⚠️：未提取到文档内容,bucket_name:{bucket_name}, object_name：{object_name}")
-                return None
+                return {}
 
             logger.info(f"提取到文本：{len(text_content)}个字符,bucket_name:{bucket_name}, object_name：{object_name}")
             # 分隔文本位片段
@@ -190,8 +190,8 @@ class SimpleObjectParser:
                 'contents':contents
             }
         except Exception as e:
-            logger.error(f"解析对象异常:bucket_name:{bucket_name}, object_name:{object_name}, {e}")
-            return None
+            logger.exception(f"解析对象异常:bucket_name:{bucket_name}, object_name:{object_name}")
+            return {}
         finally:
             if 'response' in locals():
                 response.close()
