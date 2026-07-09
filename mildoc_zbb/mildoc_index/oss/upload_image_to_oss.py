@@ -1,6 +1,8 @@
+import atexit
 import concurrent.futures
 import os
 import re
+import threading
 import time
 
 import oss2
@@ -10,6 +12,33 @@ from logger.logging import setup_logging
 
 load_dotenv()
 logger = setup_logging()
+
+# 全局共享线程池：所有 UploadImageToOSS 实例、所有请求共用，限制总线程数，避免每次调用都新建线程池导致线程膨胀
+_OSS_UPLOAD_EXECUTOR = None
+_OSS_UPLOAD_EXECUTOR_LOCK = threading.Lock()
+# I/O 密集型任务，默认线程数为 CPU 核数 * 2；可通过 OSS_UPLOAD_MAX_WORKERS 显式覆盖
+_OSS_UPLOAD_MAX_WORKERS = int(os.getenv("OSS_UPLOAD_MAX_WORKERS", str((os.cpu_count() or 1) * 2)))
+
+
+def _get_oss_upload_executor() -> concurrent.futures.ThreadPoolExecutor:
+    """获取（懒加载）全局共享线程池，进程退出时自动关闭。"""
+    global _OSS_UPLOAD_EXECUTOR
+    if _OSS_UPLOAD_EXECUTOR is None:
+        with _OSS_UPLOAD_EXECUTOR_LOCK:
+            if _OSS_UPLOAD_EXECUTOR is None:
+                _OSS_UPLOAD_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=_OSS_UPLOAD_MAX_WORKERS,
+                    thread_name_prefix="oss-upload",
+                )
+                atexit.register(_shutdown_oss_upload_executor)
+    return _OSS_UPLOAD_EXECUTOR
+
+
+def _shutdown_oss_upload_executor():
+    global _OSS_UPLOAD_EXECUTOR
+    if _OSS_UPLOAD_EXECUTOR is not None:
+        _OSS_UPLOAD_EXECUTOR.shutdown(wait=True)
+        _OSS_UPLOAD_EXECUTOR = None
 
 class UploadImageToOSS:
     def __init__(self):
@@ -98,25 +127,25 @@ class UploadImageToOSS:
 
             tasks.append((full_path, remote_path))
 
-        # 使用线程池并发上传
+        # 使用全局共享线程池并发上传（避免每次调用都新建线程池导致线程膨胀）
         url_map = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            # 提交所有任务
-            future_to_task = {executor.submit(self._upload_single_image_sync, task): task for task in tasks}
+        executor = _get_oss_upload_executor()
+        # 提交所有任务
+        future_to_task = {executor.submit(self._upload_single_image_sync, task): task for task in tasks}
 
-            # 使用tqdm显示进度
-            # with tqdm(total=len(tasks), desc="上传图片") as pbar:
-            for future in concurrent.futures.as_completed(future_to_task):
-                result = future.result()
-                if not result:
-                    continue
+        # 使用tqdm显示进度
+        # with tqdm(total=len(tasks), desc="上传图片") as pbar:
+        for future in concurrent.futures.as_completed(future_to_task):
+            result = future.result()
+            if not result:
+                continue
 
-                url, remote_path = result
+            url, remote_path = result
 
-                for alt_text, local_path in images:
-                    if local_path.replace('\\', '/') == remote_path:
-                        url_map[local_path] = url
-                        break
+            for alt_text, local_path in images:
+                if local_path.replace('\\', '/') == remote_path:
+                    url_map[local_path] = url
+                    break
 
         # 替换内容
         def replace_fn(match):
