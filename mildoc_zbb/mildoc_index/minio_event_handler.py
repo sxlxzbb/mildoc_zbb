@@ -1,4 +1,6 @@
 from datetime import datetime
+import atexit
+import concurrent.futures
 import json
 import os
 from typing import Dict, Any, List
@@ -64,8 +66,32 @@ class MinioEventHandler:
         logger.info("初始化embedding工具...")
         self.embedding_tool: EmbeddingTool = EmbeddingTool()
 
+        # 事件处理专用线程池：与 OSS 图片上传池隔离，避免“事件处理任务内部又向同一池提交图片上传”造成的嵌套死锁。
+        # 解析偏 CPU、embedding/Milvus 偏 I/O，默认取 CPU 核数；可用 MINIO_PROCESS_MAX_WORKERS 覆盖。
+        event_workers = int(os.getenv("MINIO_PROCESS_MAX_WORKERS", str(os.cpu_count() or 1)))
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=event_workers,
+            thread_name_prefix="minio-event",
+        )
+        atexit.register(self._shutdown_executor)
+        logger.info(f"事件处理线程池已创建，max_workers={event_workers}")
+
         logger.info("所有组件初始化完成!")
 
+
+    def _log_future_exception(self, future: concurrent.futures.Future):
+        """兜底：worker 内未捕获的异常打到日志，避免被静默吞掉"""
+        try:
+            future.result()
+        except Exception as e:
+            logger.error(f"事件处理任务异常:{e}")
+
+    def _shutdown_executor(self):
+        """停止事件处理线程池，等待在途任务完成（进程退出或监听结束时调用）"""
+        if getattr(self, '_executor', None) is not None:
+            logger.info("正在关闭事件处理线程池，等待在途任务完成...")
+            self._executor.shutdown(wait=True)
+            self._executor = None
 
     def _handler_object_created(self, event_info: Dict[str, Any]):
         """
@@ -361,22 +387,26 @@ class MinioEventHandler:
 
             for event in events:
                 try:
-                    if event:
-                        # 解析事件数据
-                        if isinstance(event, bytes):
-                            logger.info("event数据类型是byte")
-                            event_data = json.loads(event.decode())
-                        elif isinstance(event, str):
-                            logger.info(f"event数据类型是str：{event}")
-                            event_data = json.loads(event)
-                        elif isinstance(event, dict):
-                            logger.info(f"event数据类型是dict：{event}")
-                            event_data = event
-                        else:
-                            logger.error(f"未知的事件数据类型:{type(event)},event:{event}")
+                    if not event:
+                        continue
 
-                        # 处理事件
-                        self._process_event(event_data)
+                    # 解析事件数据
+                    if isinstance(event, bytes):
+                        logger.info("event数据类型是byte")
+                        event_data = json.loads(event.decode())
+                    elif isinstance(event, str):
+                        logger.info(f"event数据类型是str：{event}")
+                        event_data = json.loads(event)
+                    elif isinstance(event, dict):
+                        logger.info(f"event数据类型是dict：{event}")
+                        event_data = event
+                    else:
+                        logger.error(f"未知的事件数据类型:{type(event)},event:{event}")
+                        continue
+
+                    # 投递到独立线程池并发处理，主线程立即回到下一轮拉取（接收与处理解耦）
+                    future = self._executor.submit(self._process_event, event_data)
+                    future.add_done_callback(self._log_future_exception)
                 except json.JSONDecodeError as e:
                     logger.error(f"解析事件数据失败:{e}")
                 except Exception as e:
@@ -385,6 +415,9 @@ class MinioEventHandler:
             logger.info("监听已停止")
         except Exception as e:
             logger.info(f"监听过程出错:{e}")
+        finally:
+            # 无论正常退出、Ctrl+C 还是异常，都关闭线程池并等待在途任务完成
+            self._shutdown_executor()
 
 
 
