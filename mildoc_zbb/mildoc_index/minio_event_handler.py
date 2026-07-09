@@ -1,7 +1,7 @@
 from datetime import datetime
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from dotenv import load_dotenv
 from minio import Minio
@@ -195,60 +195,68 @@ class MinioEventHandler:
             logger.error(f"处理对象删除事件异常：{e}")
 
 
-    def _extract_event_info(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_event_info(self, event_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         从事件数据中提取关键信息
+        一次通知可能包含多条 Record（批量上传/合并推送），需要全部提取，避免漏处理
         Args:
             event_data: 事件数据
         Returns:
-            Dict[str, Any]: 提取的信息
+            List[Dict[str, Any]]: 每条 Record 对应的关键信息列表
         """
         try:
             logger.info(f"数据：{json.dumps(event_data, ensure_ascii=False, indent=2)}")
 
-            record = event_data.get('Records', [{}])[0]
-            s3_info = record.get('s3', {})
+            records = event_data.get('Records', [])
+            if not records:
+                logger.info("事件数据中不包含任何 Record")
+                return []
 
-            return {
-                'event_name': record.get('eventName', ''),
-                'event_time': record.get('eventTime', ''),
-                'bucket_name': s3_info.get('bucket', {}).get('name', ''),
-                'object_name': s3_info.get('object', {}).get('key', ''),
-                'object_size': s3_info.get('object', {}).get('size', 0),
-                'content_type': s3_info.get('object', {}).get('contentType', ''),
-                'etag': s3_info.get('object', {}).get('eTag', ''),
-            }
+            infos = []
+            for record in records:
+                s3_info = record.get('s3', {})
+                infos.append({
+                    'event_name': record.get('eventName', ''),
+                    'event_time': record.get('eventTime', ''),
+                    'bucket_name': s3_info.get('bucket', {}).get('name', ''),
+                    'object_name': s3_info.get('object', {}).get('key', ''),
+                    'object_size': s3_info.get('object', {}).get('size', 0),
+                    'content_type': s3_info.get('object', {}).get('contentType', ''),
+                    'etag': s3_info.get('object', {}).get('eTag', ''),
+                })
+            return infos
         except Exception as e:
             logger.info(f"从时间数据提取关键信息异常:{e}")
-            return {}
+            return []
 
 
     def _process_event(self, event_data: Dict[str, Any]):
         """
-        处理单个事件
+        处理单个事件（可能包含多条 Record）
         :param event_data: 事件数据
         :return:
         """
         try:
-            # 提取事件信息
-            event_info = self._extract_event_info(event_data)
-            if not event_info:
+            # 提取事件信息（可能为多条 Record）
+            event_infos = self._extract_event_info(event_data)
+            if not event_infos:
                 logger.info(f"提取到的事件关键信息为空，event_data:{event_data}")
                 return
 
-            event_name = event_info['event_name']
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            for event_info in event_infos:
+                event_name = event_info['event_name']
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            logger.info(f"[{timestamp}] 收到事件：{event_name}")
-            logger.info(f"对象：{event_info['bucket_name']}/{event_info['object_name']}")
+                logger.info(f"[{timestamp}] 收到事件：{event_name}")
+                logger.info(f"对象：{event_info['bucket_name']}/{event_info['object_name']}")
 
-            # 根据事件类型进行处理
-            if 'ObjectCreated' in event_name:
-                self._handler_object_created(event_info)
-            elif 'ObjectRemoved' in event_name:
-                self._handler_object_deleted(event_info)
-            else:
-                logger.error(f'不支持的事件类型:{event_name}')
+                # 根据事件类型进行处理
+                if 'ObjectCreated' in event_name:
+                    self._handler_object_created(event_info)
+                elif 'ObjectRemoved' in event_name:
+                    self._handler_object_deleted(event_info)
+                else:
+                    logger.error(f'不支持的事件类型:{event_name}')
 
         except Exception as e:
             logger.info(f"事件处理出现异常:{e}")
