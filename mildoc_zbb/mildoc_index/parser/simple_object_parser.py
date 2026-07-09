@@ -169,7 +169,7 @@ class SimpleObjectParser:
 
             # 解析文档内容
             logger.info(f"使用解析器:{parser.__class__.__name__}")
-            text_content = parser.parse(data)
+            text_content = parser.parse(data, doc_name)
 
             if not text_content:
                 logger.info(f"警告⚠️：未提取到文档内容,bucket_name:{bucket_name}, object_name：{object_name}")

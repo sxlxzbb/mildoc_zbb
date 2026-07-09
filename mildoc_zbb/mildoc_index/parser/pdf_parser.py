@@ -43,27 +43,37 @@ class PDFParser(DocumentParser):
     def parse(self, data: bytes, file_name: str = None) -> str | None:
         """
         根据配置判断，是否需要通过mineru将pdf解析为markdown
-        :param file_name:
+        :param file_name: 带后缀的文件名
         :param data:
         :return:
         """
         temp_dir = None
         try:
+            if not data:
+                logger.info(f"入参pdf文件字节数据为空{file_name}")
+                return None
+
+            start_time = int(time.time() * 1000)
+
             if not self.use_mineru:
-                logger.info("未开始通过mineru解析,直接解析pdf文件")
+                logger.info("未开启通过mineru解析pdf,直接解析pdf文件")
                 # 直接读取pdf内容
                 return _read_pdf(data)
 
             # 将pdf解析为markdown文档，然后将文档中的图片上传到阿里云
-            uuid_str = str(uuid.uuid4())
-            temp_dir = os.path.join(self.temp_file_dir, uuid_str)
+            temp_dir = os.path.join(self.temp_file_dir, str(uuid.uuid4()))
             os.makedirs(temp_dir, exist_ok=True)  # 如果临时目录不存在则创建
+
+            # 将文件名字处理为不带后缀
+            file_name = os.path.splitext(file_name)[0]
 
             md_content = _parse_pdf_to_markdown(data, temp_dir, file_name, self.upload_image_to_oss)
             if not md_content:
                 # 兜底，如果解析为markdown异常，则还是直接读取pdf
                 logger.info("将PDF解析为markdown返回空,所以直接读取pdf文件内容返回")
                 return _read_pdf(data)
+
+            logger.info(f"{file_name}处理完成，总共耗时:{int(time.time() * 1000 - start_time)}ms")
 
             return md_content
 
@@ -72,6 +82,7 @@ class PDFParser(DocumentParser):
         finally:
             # 删除临时目录
             if temp_dir and os.path.exists(temp_dir):
+                logger.info(f"删除临时目录：{temp_dir}")
                 shutil.rmtree(temp_dir)
 
 
