@@ -12,7 +12,7 @@ from logger.logging import setup_logging
 from parser.document_parser import DocumentParser
 from parser.pdf_parser import PDFParser
 
-logger = setup_logging(name=__name__)
+logger = setup_logging(name=f"{__name__}.OfficeParser")
 
 class OfficeParser(DocumentParser):
 
