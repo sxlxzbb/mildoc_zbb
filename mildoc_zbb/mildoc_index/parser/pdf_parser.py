@@ -25,23 +25,6 @@ class PDFParser(DocumentParser):
         self.use_mineru = os.getenv("USE_MINREU", "false") == 'true'
         self.upload_image_to_oss = UploadImageToOSS()
 
-    # """PDF文档解析器"""
-    # def parse(self, data: bytes) -> str:
-    #     try:
-    #         reader = PdfReader(BytesIO(data))
-    #         text_content = ""
-    #         for page_num in range(len(reader.pages)):
-    #             page = reader.pages[page_num]
-    #             page_etxt = page.extract_text()
-    #             if page_etxt:
-    #                 text_content += page_etxt + "\n"
-    #
-    #         return text_content.strip()
-    #     except Exception as e:
-    #         logger.error(f"PDF文档解析失败:{e}")
-    #         return ""
-
-
     def parse(self, data: bytes, file_name: str = None) -> List[str]:
         """
         根据配置判断，是否需要通过mineru将pdf解析为markdown
