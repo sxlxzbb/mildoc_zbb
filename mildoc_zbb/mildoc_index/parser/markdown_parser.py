@@ -9,6 +9,10 @@ class MarkdownParser(DocumentParser):
     def parse(self, data: bytes, file_name: str = None) -> str:
         """解析Markdown文档,直接返回原始内容"""
         try:
+            if not data:
+                logger.info(f"{file_name}入参字节数据为空")
+                return ""
+
             # 尝试不同的编码
             encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1']
             for encoding in encodings:

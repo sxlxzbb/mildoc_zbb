@@ -13,10 +13,14 @@ logger = setup_logging()
 class LibreOffice:
     def __init__(self):
         self.soffice_path = os.getenv('SOFFICE_PATH')
-        self.temp_file_dir = os.getenv('TMP_FILE_DIR')
+        self.use_libre_office = os.getenv('USE_LIBRE_OFFICE', "false") == 'true'
 
 
     def convert_doc_to_pdf(self, file_path: str) -> str | None:
+        if not self.use_libre_office:
+            logger.info("未启用litre_offce转换")
+            return None
+
         if not file_path:
             logger.info(f"libre_office#convert_doc_to_pdf#入参file_path为空")
             return None

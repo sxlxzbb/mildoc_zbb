@@ -7,6 +7,10 @@ class TextParser(DocumentParser):
     """存文本文档解析器"""
     def parse(self, data: bytes, file_name: str = None) -> str:
         try:
+            if not data:
+                logger.info(f"{file_name}入参字节数据为空")
+                return ""
+
             # 尝试不同的编码
             encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1']
             for encodings in encodings:
@@ -23,4 +27,4 @@ class TextParser(DocumentParser):
 
     def supports(self, content_type: str) -> bool:
         """检查是否支持文本"""
-        return content_type.lower() in ['text/plain', 'text/html', 'text/markdown', 'txt']
+        return content_type.lower() in ['text/plain', 'text/html', 'txt']

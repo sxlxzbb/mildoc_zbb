@@ -14,7 +14,7 @@ from parser.pdf_parser import PDFParser
 
 load_dotenv()
 
-logger = setup_logging()
+logger = setup_logging(name=__name__)
 
 class OfficeParser(DocumentParser):
 
@@ -75,13 +75,12 @@ class OfficeParser(DocumentParser):
             with open(office_file_path, 'wb') as f:
                 f.write(data)
 
+            # office文档转为pdf
             pdf_file_path = self.libre_office.convert_doc_to_pdf(office_file_path)
 
-            if not os.path.exists(pdf_file_path):
-                logger.info(f"{file_name}转换得到的pdf文件不存在:{pdf_file_path},使用markitdown读取{file_name}文件内容")
+            if not pdf_file_path or not os.path.exists(pdf_file_path):
+                logger.info(f"未启用libre_office转换或{file_name}转换得到的pdf文件不存在:{pdf_file_path},使用markitdown读取{file_name}文件内容")
                 return self.parse_by_markitdown(data, file_name)
-
-            # return ""
 
             pdf_bytes_data = None
             with open(pdf_file_path, 'rb') as f:
