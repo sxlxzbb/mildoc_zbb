@@ -64,6 +64,7 @@ class PDFParser(DocumentParser):
 
         except Exception as e:
             logger.exception(f"PDF解析异常,{file_name}")
+            return []
         finally:
             # 删除临时目录
             if temp_dir and os.path.exists(temp_dir):
