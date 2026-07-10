@@ -277,7 +277,7 @@ def create_rerank_service() -> Optional[RerankService]:
 
 
 def get_rerank_service() -> Optional[RerankService]:
-    """获取重排序服务实例（单例模式）"""
+    """获取重排序服务实例（单例模式），这儿应该加锁"""
     global _rerank_service_instance
     if _rerank_service_instance is None:
         _rerank_service_instance = create_rerank_service()

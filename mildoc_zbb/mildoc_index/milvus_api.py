@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 
 from dotenv import load_dotenv
-from pymilvus import MilvusClient, DataType
+from pymilvus import MilvusClient, DataType, Function, FunctionType
 
 from logger.logging import setup_logging
 
@@ -30,7 +30,8 @@ class MilvusDocumentField(str, Enum):
     DOC_MD5 = "doc_md5"   # 文档MD5
     DOC_LENGTH = "doc_length" # 文档字节数
     CONTENT = "content"   # 文档分段内容
-    CONTENT_VECTOR = "content_vector"   # 分段内容向量
+    CONTENT_VECTOR = "content_vector"   # 分段内容向量（dense，embedding模型生成）
+    CONTENT_SPARSE = "content_sparse"   # 分段内容稀疏向量（BM25 Function服务端自动生成）
     EMBEDDING_MODEL = "embedding_model" # embedding模型名称
 
 class MilvusAPI:
@@ -133,11 +134,13 @@ class MilvusAPI:
                 datatype=DataType.INT64,
             )
 
-            # 文档内容
+            # 文档内容（开启分词器，供BM25全文检索使用）
             schema.add_field(
                 field_name=MilvusDocumentField.CONTENT.value,
                 datatype=DataType.VARCHAR,
-                max_length=65535  # 最大长度
+                max_length=65535,  # 最大长度
+                enable_analyzer=True,  # 开启分词，BM25 Function依赖此项
+                analyzer_params={"tokenizer": "jieba"}  # 中文分词
             )
 
             # 内容向量（text-embedding-v4的维度是1536）
@@ -154,6 +157,21 @@ class MilvusAPI:
                 max_length=100
             )
 
+            # 稀疏向量字段（BM25 Function的输出字段，由服务端自动生成，插入时无需提供）
+            schema.add_field(
+                field_name=MilvusDocumentField.CONTENT_SPARSE.value,
+                datatype=DataType.SPARSE_FLOAT_VECTOR
+            )
+
+            # 定义BM25 Function：输入content文本，服务端自动分词并生成稀疏向量到content_sparse
+            bm25_function = Function(
+                name="content_bm25",
+                input_field_names=[MilvusDocumentField.CONTENT.value],
+                output_field_names=[MilvusDocumentField.CONTENT_SPARSE.value],
+                function_type=FunctionType.BM25
+            )
+            schema.add_function(bm25_function)
+
             # 创建集合
             self.client.create_collection(collection_name=self.collection_name, schema=schema)
 
@@ -164,26 +182,40 @@ class MilvusAPI:
             return False
 
     def _create_index_if_not_exists(self) -> bool:
-        """创建索引"""
+        """创建索引（dense向量索引 + sparse BM25索引）"""
         try:
-            # 检查索引是否已经存在
-            indexes = self.client.list_indexes(collection_name=self.collection_name)
-            if self.index_name in indexes:
-                logger.info(f"索引 '{self.index_name}' 已经存在")
-                return True
+            # 已存在的索引（按字段名判断，未指定index_name时索引名默认为字段名）
+            existing_indexes = self.client.list_indexes(collection_name=self.collection_name)
 
-            # 创建向量索引
             index_params = self.client.prepare_index_params()
-            index_params.add_index(
-                field_name=MilvusDocumentField.CONTENT_VECTOR.value,
-                index_type='IVF_FLAT',
-                metric_type='COSINE',
-                params={'nlist': 1024}
-            )
+            need_create = False
+
+            # dense向量索引（IVF_FLAT + COSINE）
+            if MilvusDocumentField.CONTENT_VECTOR.value not in existing_indexes:
+                index_params.add_index(
+                    field_name=MilvusDocumentField.CONTENT_VECTOR.value,
+                    index_type='IVF_FLAT',
+                    metric_type='COSINE',
+                    params={'nlist': 1024}
+                )
+                need_create = True
+
+            # sparse BM25索引（SPARSE_INVERTED_INDEX + BM25）
+            if MilvusDocumentField.CONTENT_SPARSE.value not in existing_indexes:
+                index_params.add_index(
+                    field_name=MilvusDocumentField.CONTENT_SPARSE.value,
+                    index_type='SPARSE_INVERTED_INDEX',
+                    metric_type='BM25'
+                )
+                need_create = True
+
+            if not need_create:
+                logger.info("dense与sparse索引均已存在")
+                return True
 
             self.client.create_index(collection_name=self.collection_name, index_params=index_params)
 
-            logger.info(f"索引 '{self.index_name}' 创建成功")
+            logger.info("索引创建成功（dense向量索引 + sparse BM25索引）")
             return True
         except Exception as e:
             logger.error(f"创建索引失败:{e}")

@@ -41,6 +41,7 @@ def _get_kfid_lock(open_kfid):
 def _handle_kf_messages(token, open_kfid):
     """在线程池中执行：按 open_kfid 串行处理客服消息，避免 cursor 竞态和重复拉取"""
     try:
+        # 如果多台机器应该用分布式锁（比如redis锁）
         with _get_kfid_lock(open_kfid):
             from kf_message_handler import get_kf_handler
             get_kf_handler().process_kf_event(token, open_kfid)

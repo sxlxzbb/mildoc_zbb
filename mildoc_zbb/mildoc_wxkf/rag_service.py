@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from langchain_community.callbacks.manager import get_openai_callback
 # from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
-from langchain_milvus import Milvus
+from langchain_milvus import Milvus, BM25BuiltInFunction
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
@@ -209,26 +209,36 @@ class RAGService:
             if Config.MILVUS_PASSWORD:
                 connection_args['password'] = Config.MILVUS_PASSWORD
 
-            # 配置搜索参数，针对IVF_FLAT索引优化
-            search_params = {
-                'metric_type': 'COSINE',  # 与索引保持一致
+            # 配置搜索参数：混合检索需为每个向量字段分别配置
+            # 顺序须与下方 vector_field 一致：[dense(content_vector), sparse(content_sparse)]
+            dense_search_params = {
+                'metric_type': 'COSINE',  # 与dense索引保持一致
                 'params': {
                     'nprobe': 64  # 建议设置为nlist的6.25%（64/1024），平衡性能和召回
                 }
             }
+            sparse_search_params = {
+                'metric_type': 'BM25'  # 与sparse(BM25)索引保持一致
+            }
+            search_params = [dense_search_params, sparse_search_params]
 
-            # 初始化Milvus向量存储
+            # 初始化Milvus向量存储（混合检索：dense向量 + BM25稀疏向量）
+            # BM25BuiltInFunction 让 query 文本在服务端自动转为稀疏向量，无需本地加载任何文档
             self.vector_store = Milvus(
                 embedding_function=self.embeddings,
+                builtin_function=BM25BuiltInFunction(
+                    input_field_names='content',
+                    output_field_names='content_sparse'
+                ),
                 collection_name=Config.MILVUS_COLLECTION_NAME,
                 connection_args=connection_args,
                 text_field='content',    # 文本内容
-                vector_field='content_vector',   # 向量字段
+                vector_field=['content_vector', 'content_sparse'],   # [dense, sparse] 两路向量字段
                 auto_id=True,
-                search_params=search_params     # 添加搜索参数
+                search_params=search_params     # 每路向量各自的搜索参数
             )
 
-            logger.info(f"Milvus向量存储初始化成功：{Config.MILVUS_COLLECTION_NAME}, 搜索参数：{search_params}")
+            logger.info(f"Milvus混合检索向量存储初始化成功：{Config.MILVUS_COLLECTION_NAME}, 搜索参数：{search_params}")
         except Exception as e:
             logger.error(f"Milvus向量存储初始化失败：{e}")
             raise
@@ -271,16 +281,22 @@ class RAGService:
             # scene_info = self.detect_user_scene(query)
             scene_info = None # 暂时不启用场景检测
 
-            # 第二步：向量检索获取候选文档
+            # 第二步：混合检索（dense向量 + BM25稀疏向量）获取候选文档
             initial_k = 10 if use_rerank and self.rerank_service else 3
-            retriever = self.vector_store.as_retriever(
-                search_type='similarity',
-                search_kwargs={'k': initial_k}
+            # 存在多个向量字段时 similarity_search 会自动执行 hybrid_search，
+            # 使用 RRF(Reciprocal Rank Fusion) 融合 dense 与 BM25 两路召回结果
+            candidate_docs = self.vector_store.similarity_search(
+                query,
+                k=initial_k,
+                # ranker_type：多路召回结果的融合方式。'rrf'=Reciprocal Rank Fusion（倒数排名融合），
+                #   各路（dense向量、BM25稀疏向量）按各自排名打分后合并，不依赖分数绝对值，鲁棒性好。
+                ranker_type='rrf',
+                # ranker_params：RRF 的平滑常数 k（默认60）。融合公式 score = Σ 1/(k + rank)，
+                #   rank 为文档在某一路召回中的名次（从1开始）。k 越大，靠前的排名优势越被削弱，
+                #   各路召回的权重越趋于均衡；k 越小，名次靠前的文档得分越突出。
+                ranker_params={'k': 60}
             )
-
-            # 获取候选文档
-            candidate_docs = retriever.invoke(query)
-            logger.info(f"📄初始检索到 {len(candidate_docs)} 个候选文档")
+            logger.info(f"📄混合检索到 {len(candidate_docs)} 个候选文档")
 
             # 第三步：重排序（如果启用）
             final_docs = candidate_docs
