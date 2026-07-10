@@ -31,6 +31,9 @@ class Config:
 
     # 客服配置
     KF_MAX_REPLY_LENGTH = 2048  # 客服回复最大长度
+    # 客服消息处理线程池大小（IO密集型，默认 = CPU核数 * 2，可通过环境变量 KF_WORKER_THREADS 覆盖）
+    _KF_DEFAULT_THREADS = (os.cpu_count() or 1) * 2
+    KF_WORKER_THREADS = int(os.getenv('KF_WORKER_THREADS', _KF_DEFAULT_THREADS))
 
     # Milvus配置
     MILVUS_HOST = os.getenv('MILVUS_HOST')

@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from typing import Dict
 
@@ -8,6 +9,20 @@ from cursor_manager import cursor_manager
 from rag_service import get_rag_service
 
 logger = logging.getLogger(__name__)
+
+# 全局单例，跨回调共享内存去重缓存（processed_messages），避免同一消息被重复处理
+_kf_handler_instance = None
+_kf_handler_lock = threading.Lock()
+
+
+def get_kf_handler() -> 'KfMessageHandler':
+    """获取 KfMessageHandler 单例（线程安全，双重检查锁定）"""
+    global _kf_handler_instance
+    if _kf_handler_instance is None:
+        with _kf_handler_lock:
+            if _kf_handler_instance is None:
+                _kf_handler_instance = KfMessageHandler()
+    return _kf_handler_instance
 
 WELCOME_MESSAGE = '''
 🎉 欢迎使用微信客服！
@@ -81,8 +96,9 @@ class KfMessageHandler:
 
                     # 限制内存缓存大小
                     if len(self.processed_messages) > 100:
-                        # 清理一半的缓存
-                        self.processed_messages = set(list(self.processed_messages[50:]))
+                        # 清理一半的缓存（set 不支持切片，需先转 list 再取后半部分）
+                        cached = list(self.processed_messages)
+                        self.processed_messages = set(cached[len(cached) // 2:])
 
             # 保存cursor到持久化存储
             if next_cursor:

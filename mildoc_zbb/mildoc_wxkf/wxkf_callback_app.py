@@ -4,6 +4,8 @@
 """
 import json
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import unquote
 from flask import Flask, request, abort
 from WXBizMsgCrypt import WXBizMsgCrypt
@@ -18,6 +20,32 @@ logger = logging.getLogger(__name__)
 
 # 创建Flask应用
 app = Flask(__name__)
+
+# 客服消息处理线程池：复用固定数量线程，避免每条消息新建线程导致线程无上限、无背压
+_kf_executor = ThreadPoolExecutor(max_workers=Config.KF_WORKER_THREADS, thread_name_prefix="kf-worker")
+# 按 open_kfid 串行处理的锁，避免同一客服账号并发拉取导致 cursor 竞态/重复处理
+_kfid_locks = {}
+_kfid_locks_guard = threading.Lock()
+
+
+def _get_kfid_lock(open_kfid):
+    """获取指定客服账号的处理锁（懒创建，全进程共享）"""
+    with _kfid_locks_guard:
+        lock = _kfid_locks.get(open_kfid)
+        if lock is None:
+            lock = threading.Lock()
+            _kfid_locks[open_kfid] = lock
+        return lock
+
+
+def _handle_kf_messages(token, open_kfid):
+    """在线程池中执行：按 open_kfid 串行处理客服消息，避免 cursor 竞态和重复拉取"""
+    try:
+        with _get_kfid_lock(open_kfid):
+            from kf_message_handler import get_kf_handler
+            get_kf_handler().process_kf_event(token, open_kfid)
+    except Exception as e:
+        logger.error(f"处理客服消息异常：{e}", exc_info=True)
 
 def get_wecom_config():
     """获取企业微信配置，优先从环境变量获取"""
@@ -281,28 +309,9 @@ def process_event_message(event, root):
         open_kfid = root.find('OpenKfId').text if root.find('OpenKfId') is not None else ''
 
         if token and open_kfid:
-            # 异步处理客服消息（避免阻塞回调响应）
-            import threading
-
-            def process_kf_messages():
-                # try:
-                logger.info(f'000000000000000000000')
-                    # 延迟导入避免循环导入
-                from kf_message_handler import KfMessageHandler
-                logger.info(f'11111111111111111111')
-                kf_handler = KfMessageHandler()
-                logger.info(f'222222222222222222222')
-                    # 真正处理消息的函数
-                kf_handler.process_kf_event(token, open_kfid)
-                # except Exception as e:
-                    # logger.error(f"处理客服消息异常：{e}")
-
-            # 启动后台线程处理消息
-            thread = threading.Thread(target=process_kf_messages)
-            thread.daemon = True
-            thread.start()
-
-            logger.info(f"已启动客服消息处理线程 - OpenKfId:{open_kfid}")
+            # 提交到线程池处理（避免阻塞回调响应），按 open_kfid 串行化由线程内锁保证
+            _kf_executor.submit(_handle_kf_messages, token, open_kfid)
+            logger.info(f"已提交客服消息处理任务 - OpenKfId:{open_kfid}")
         else:
             logger.error("客服事件缺少必要参数 - Token或OpenKfId为空")
         return None
