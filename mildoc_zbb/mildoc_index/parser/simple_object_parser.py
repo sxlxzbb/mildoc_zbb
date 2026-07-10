@@ -107,10 +107,10 @@ class SimpleObjectParser:
         """
         return hashlib.md5(data).hexdigest()
 
-    def _split_text_by_langchain(self, text: str) -> List[str]:
-        """使用LangChain分隔文档，递归分割器"""
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.overlap_size)
-        return text_splitter.split_text(text)
+    # def _split_text_by_langchain(self, text: str) -> List[str]:
+    #     """使用LangChain分隔文档，递归分割器"""
+    #     text_splitter = RecursiveCharacterTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.overlap_size)
+    #     return text_splitter.split_text(text)
 
 
     def parse_object(self, bucket_name: str, object_name: str) -> Dict[str, Any]:
@@ -169,17 +169,18 @@ class SimpleObjectParser:
 
             # 解析文档内容
             logger.info(f"使用解析器:{parser.__class__.__name__}")
-            text_content = parser.parse(data, doc_name)
+            contents = parser.parse(data, doc_name)
 
-            if not text_content:
+            if not contents:
                 logger.info(f"警告⚠️：未提取到文档内容,bucket_name:{bucket_name}, object_name：{object_name}")
                 return {}
 
-            logger.info(f"提取到文本：{len(text_content)}个字符,bucket_name:{bucket_name}, object_name：{object_name}")
-            # 分隔文本位片段
-            contents = self._split_text_by_langchain(text_content)
+            # logger.info(f"提取到文本：{len(text_content)}个字符,bucket_name:{bucket_name}, object_name：{object_name}")
 
-            logger.info(f"分割为 {len(contents)} 个片段,bucket_name:{bucket_name}, object_name：{object_name}")
+            # 分隔文本位片段
+            # contents = self._split_text_by_langchain(text_content)
+
+            logger.info(f"提取并分割为 {len(contents)} 个片段,bucket_name:{bucket_name}, object_name：{object_name}")
 
             return {
                 "doc_name": doc_name,

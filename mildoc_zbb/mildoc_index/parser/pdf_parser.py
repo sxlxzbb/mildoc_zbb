@@ -3,6 +3,7 @@ import shutil
 import time
 import uuid
 from io import BytesIO
+from typing import List
 
 from mineru.cli.common import do_parse
 from mineru.data.data_reader_writer import FileBasedDataWriter
@@ -19,6 +20,7 @@ logger = setup_logging()
 
 class PDFParser(DocumentParser):
     def __init__(self):
+        super().__init__()
         self.temp_file_dir = os.getenv('TMP_FILE_DIR')
         self.use_mineru = os.getenv("USE_MINREU", "false") == 'true'
         self.upload_image_to_oss = UploadImageToOSS()
@@ -40,7 +42,7 @@ class PDFParser(DocumentParser):
     #         return ""
 
 
-    def parse(self, data: bytes, file_name: str = None) -> str | None:
+    def parse(self, data: bytes, file_name: str = None) -> List[str]:
         """
         根据配置判断，是否需要通过mineru将pdf解析为markdown
         :param file_name: 带后缀的文件名
@@ -51,14 +53,14 @@ class PDFParser(DocumentParser):
         try:
             if not data:
                 logger.info(f"入参pdf文件字节数据为空{file_name}")
-                return None
+                return []
 
             start_time = int(time.time() * 1000)
 
             if not self.use_mineru:
                 logger.info("未开启通过mineru解析pdf,直接解析pdf文件")
                 # 直接读取pdf内容
-                return _read_pdf(data)
+                return self._read_pdf(data, file_name)
 
             # 将pdf解析为markdown文档，然后将文档中的图片上传到阿里云
             temp_dir = os.path.join(self.temp_file_dir, str(uuid.uuid4()))
@@ -71,14 +73,14 @@ class PDFParser(DocumentParser):
             if not md_content:
                 # 兜底，如果解析为markdown异常，则还是直接读取pdf
                 logger.info("将PDF解析为markdown返回空,所以直接读取pdf文件内容返回")
-                return _read_pdf(data)
+                return self._read_pdf(data, file_name)
 
             logger.info(f"{file_name}处理完成，总共耗时:{int(time.time() * 1000 - start_time)}ms")
 
-            return md_content
+            return self.split_by_title_and_paragraph(md_content)
 
         except Exception as e:
-            logger.error(f"PDF解析异常", e)
+            logger.exception(f"PDF解析异常,{file_name}")
         finally:
             # 删除临时目录
             if temp_dir and os.path.exists(temp_dir):
@@ -89,6 +91,28 @@ class PDFParser(DocumentParser):
     def supports(self, content_type: str) -> bool:
         """检查是否支持PDF"""
         return content_type.lower() in ['application/pdf', 'pdf']
+
+
+    def _read_pdf(self, data: bytes, file_name: str) -> List[str]:
+        try:
+            reader = PdfReader(BytesIO(data))
+            text_content = ""
+            for page_num in range(len(reader.pages)):
+                page = reader.pages[page_num]
+                page_etxt = page.extract_text()
+                if page_etxt:
+                    text_content += page_etxt + "\n"
+
+            if not text_content:
+                logger.info(f"直接读取文件:{file_name}字节数据得到的内容为空")
+                return []
+
+            text_content = text_content.strip()
+
+            return self.split_text(text_content)
+        except Exception:
+            logger.exception("直接读取pdf文件内容异常")
+            return []
 
 
 def _parse_pdf_to_markdown(data: bytes, temp_dir: str, file_name: str, upload_tool: UploadImageToOSS) -> str | None:
@@ -124,21 +148,6 @@ def _parse_pdf_to_markdown(data: bytes, temp_dir: str, file_name: str, upload_to
     except Exception:
         logger.exception("将PDF文件解析为markdown文件异常")
 
-
-def _read_pdf(data: bytes) -> str:
-    try:
-        reader = PdfReader(BytesIO(data))
-        text_content = ""
-        for page_num in range(len(reader.pages)):
-            page = reader.pages[page_num]
-            page_etxt = page.extract_text()
-            if page_etxt:
-                text_content += page_etxt + "\n"
-
-        return text_content.strip()
-    except Exception as e:
-        logger.exception("直接读取pdf文件内容异常")
-        return ""
 
 
 if __name__ == '__main__':
