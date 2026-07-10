@@ -12,9 +12,7 @@ from pypdf import PdfReader
 from logger.logging import setup_logging
 from oss.upload_image_to_oss import UploadImageToOSS
 from parser.document_parser import DocumentParser
-from dotenv import load_dotenv
 
-load_dotenv()
 logger = setup_logging()
 
 

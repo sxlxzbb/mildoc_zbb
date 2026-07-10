@@ -5,15 +5,12 @@ import uuid
 from io import BytesIO
 from typing import List
 
-from dotenv import load_dotenv
 from markitdown import MarkItDown
 
 from doc_convert.libre_office import LibreOffice
 from logger.logging import setup_logging
 from parser.document_parser import DocumentParser
 from parser.pdf_parser import PDFParser
-
-load_dotenv()
 
 logger = setup_logging(name=__name__)
 
