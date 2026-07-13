@@ -284,7 +284,7 @@ class RAGService:
             scene_info = None # 暂时不启用场景检测
 
             # 第二步：混合检索（dense向量 + BM25稀疏向量）获取候选文档
-            initial_k = 20 if use_rerank and self.rerank_service else 5
+            initial_k = 50 if use_rerank and self.rerank_service else 5
             # 存在多个向量字段时 similarity_search 会自动执行 hybrid_search，
             # 使用 RRF(Reciprocal Rank Fusion) 融合 dense 与 BM25 两路召回结果
             candidate_docs = self.vector_store.similarity_search(
@@ -293,13 +293,20 @@ class RAGService:
                 # ranker_type：多路召回结果的融合方式。'rrf'=Reciprocal Rank Fusion（倒数排名融合），
                 #   各路（dense向量、BM25稀疏向量）按各自排名打分后合并，不依赖分数绝对值，鲁棒性好。
                 # 如果想让向量或BM25 占更大权重，可以把ranker_type改成'weighted',ranker_params改成{'weights':[0.6,0.4]}
-                ranker_type='rrf',
+                # ranker_type='rrf',
+                ranker_type='weighted',
                 # ranker_params：RRF 的平滑常数 k（默认60）。融合公式 score = Σ 1/(k + rank)，
                 #   rank 为文档在某一路召回中的名次（从1开始）。k 越大，靠前的排名优势越被削弱，
                 #   各路召回的权重越趋于均衡；k 越小，名次靠前的文档得分越突出。
-                ranker_params={'k': 60}
+                # ranker_params={'k': 60}
+                ranker_params={'weights':[0.7,0.3]}
             )
             logger.info(f"📄混合检索到 {len(candidate_docs)} 个候选文档")
+            logger.info(f"===================================")
+            logger.info(f"候选文档内容:")
+            for i, doc in enumerate(candidate_docs):
+                logger.info(f"第{i}个文档:{doc[:50]}")
+            logger.info(f"===================================")
 
             # 第三步：重排序（如果启用）
             final_docs = candidate_docs
@@ -308,7 +315,7 @@ class RAGService:
                 doc_contents = [doc.page_content for doc in candidate_docs]
 
                 # 增加重排序的top_n数量，确保不会过滤掉高相关度文档
-                rerank_top_n = min(5, len(candidate_docs))
+                rerank_top_n = min(10, len(candidate_docs))
 
                 # 执行重排序
                 rerank_reponse: RerankResponse = self.rerank_service.rerank_documents(
@@ -321,10 +328,13 @@ class RAGService:
                     # 根据重排序结果重新排列文档
                     reranked_docs = []
                     document_indexs = set()
+                    logger.info("文档重排序之后=====================")
                     for rerank_doc in rerank_reponse.documents:
+
                         if 0 <= rerank_doc.index < len(candidate_docs):
                             # 重排返回值中文件对象的index是该文档在重排之前list中的位置索引，所以这儿可以直接把index作为下标去重排之前的list取重排之前的文档
                             original_doc = candidate_docs[rerank_doc.index]
+                            logger.info(f"文档索引:{rerank_doc.index},内容:{original_doc.page_content},分数:{rerank_doc.relevance_score}")
                             # 将相关性分数添加到元数据中
                             if hasattr(original_doc, 'metadata'):
                                 original_doc.metadata['rerank_score'] = rerank_doc.relevance_score
@@ -350,7 +360,8 @@ class RAGService:
                             reranked_docs.insert(0, first_doc)
                             logger.info(f"安全检查：将原始最高相似度文档添加到重排序结果中")
 
-                    final_docs = reranked_docs[:3]   # 取前3个
+                    # final_docs = reranked_docs[:3]   # 取前3个
+                    final_docs = reranked_docs
                     logger.info(f"重排序完成了，选择了{len(final_docs)}个文档")
                 else:
                     logger.info(f"重排序失败，使用原始检索结果：{rerank_reponse.error_message}")
