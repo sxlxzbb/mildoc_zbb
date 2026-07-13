@@ -82,6 +82,8 @@ class RAGService:
         - 如果知识库中有明确答案，请准确完整地回答
         - 如果知识库中信息不完整，说明现有信息并提示用户可联系人工客服获取更详细信息
         - 如果知识库中完全没有相关信息，请礼貌地说明无法找到相关资料，建议用户转接人工客服
+        - 回答的过程中剔除掉不相关的内容
+        - 如果知识库内容中含有URL，请不要对URL做任何的改动，原样返回
     4.【回答格式】
         - 使用纯文本格式，不使用markdown格式
         - 语言简洁明了，适合微信对话环境
@@ -282,7 +284,7 @@ class RAGService:
             scene_info = None # 暂时不启用场景检测
 
             # 第二步：混合检索（dense向量 + BM25稀疏向量）获取候选文档
-            initial_k = 10 if use_rerank and self.rerank_service else 3
+            initial_k = 20 if use_rerank and self.rerank_service else 5
             # 存在多个向量字段时 similarity_search 会自动执行 hybrid_search，
             # 使用 RRF(Reciprocal Rank Fusion) 融合 dense 与 BM25 两路召回结果
             candidate_docs = self.vector_store.similarity_search(
