@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, asdict
 from enum import Enum
+from typing import List
 
 from dotenv import load_dotenv
 from pymilvus import MilvusClient, DataType, Function, FunctionType
@@ -283,15 +284,37 @@ class MilvusAPI:
             logger.error(f"删除文档异常 {e}")
             raise e
 
-    def insert_document(self, doc_data: MilvusDocument) -> bool:
-        """插入文档数据"""
+    def insert_documents(self, doc_list: List[MilvusDocument], batch_size: int = 500) -> int:
+        """
+        批量插入文档数据
+        :param doc_list: 文档数据列表
+        :param batch_size: 每批插入条数，避免单次请求过大
+        :return: 成功插入的条数
+        """
+        if not doc_list:
+            logger.warning("插入文档列表为空，跳过")
+            return 0
         try:
-            self.client.insert(collection_name=self.collection_name, data=asdict(doc_data))
-            logger.info(f"文档 '{doc_data.doc_name}' 插入成功")
-            return True
+            total_inserted = 0
+            for start in range(0, len(doc_list), batch_size):
+                batch = doc_list[start:start + batch_size]
+                result = self.client.insert(
+                    collection_name=self.collection_name,
+                    data=[asdict(d) for d in batch]
+                )
+                # 兼容不同 pymilvus 版本返回结构（dict 含 insert_count 或 MutationResult）
+                inserted = result.get('insert_count') if isinstance(result, dict) else None
+                total_inserted += inserted if inserted is not None else len(batch)
+
+            logger.info(f"批量插入文档成功，共插入 {total_inserted} 条")
+            return total_inserted
         except Exception as e:
-            logger.error(f"插入文档失败:{e}")
-            return False
+            logger.error(f"批量插入文档失败:{e}")
+            return 0
+
+    def insert_document(self, doc_data: MilvusDocument) -> bool:
+        """插入单个文档数据（内部走批量接口）"""
+        return self.insert_documents([doc_data]) > 0
 
     def flush_collection(self) -> bool:
         """刷新集合"""

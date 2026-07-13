@@ -156,8 +156,8 @@ class MinioEventHandler:
             if force_update:
                 self.milvus_api.delete_existing_document(doc_path_name)
 
-            # 为每个文本片段生成embedding并存储到Milvus
-            success_count = 0
+            # 为每个文本片段生成embedding，收集后批量存储到Milvus
+            doc_data_list = []
             for i, content in enumerate(parser_result['contents']):
                 try:
                     # 生成embedding向量
@@ -177,16 +177,20 @@ class MinioEventHandler:
                         content_vector=embedding_vector,
                         embedding_model=self.embedding_tool.model
                     )
-
-                    # 存储到Milvus(允许重复，因为我们已经处理了去重逻辑)
-                    if self.milvus_api.insert_document(doc_data):
-                        success_count += 1
-                    else:
-                        logger.error(f"保存文档{bucket_name}/{object_name}片段{i + 1}向量失败")
+                    doc_data_list.append(doc_data)
 
                 except Exception as e:
                     logger.error(f"处理文档{bucket_name}/{object_name}片段{i + 1}异常：{e}")
                     continue
+
+            # 批量存储到Milvus(允许重复，因为我们已经处理了去重逻辑)
+            success_count = self.milvus_api.insert_documents(doc_data_list)
+
+            if success_count < len(doc_data_list):
+                logger.error(
+                    f"保存文档{bucket_name}/{object_name}向量部分失败，"
+                    f"成功{success_count}/{len(doc_data_list)}个片段"
+                )
 
             logger.info(f"文档{bucket_name}/{object_name}处理完成，成功存储{success_count}/{len(parser_result['contents'])}个片段")
 

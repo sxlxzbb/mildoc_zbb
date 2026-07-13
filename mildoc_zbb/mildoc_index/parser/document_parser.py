@@ -102,8 +102,8 @@ class DocumentParser(ABC):
         markdown_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=[
                 ("#", "Header 1"),
-                ("##", "Header 2"),
-                ("###", "Header 3"),
+                # ("##", "Header 2"),
+                # ("###", "Header 3"),
             ],
             strip_headers=False  # 建议保留标题在内容中，让语义更完整
         )
