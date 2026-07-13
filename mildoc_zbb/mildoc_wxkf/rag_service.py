@@ -292,6 +292,7 @@ class RAGService:
                 k=initial_k,
                 # ranker_type：多路召回结果的融合方式。'rrf'=Reciprocal Rank Fusion（倒数排名融合），
                 #   各路（dense向量、BM25稀疏向量）按各自排名打分后合并，不依赖分数绝对值，鲁棒性好。
+                # 如果想让向量或BM25 占更大权重，可以把ranker_type改成'weighted',ranker_params改成{'weights':[0.6,0.4]}
                 ranker_type='rrf',
                 # ranker_params：RRF 的平滑常数 k（默认60）。融合公式 score = Σ 1/(k + rank)，
                 #   rank 为文档在某一路召回中的名次（从1开始）。k 越大，靠前的排名优势越被削弱，
