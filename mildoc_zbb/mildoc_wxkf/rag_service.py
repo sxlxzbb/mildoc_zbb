@@ -305,7 +305,7 @@ class RAGService:
             logger.info(f"===================================")
             logger.info(f"候选文档内容:")
             for i, doc in enumerate(candidate_docs):
-                logger.info(f"第{i}个文档:{doc[:50]}")
+                logger.info(f"第{i}个文档:{doc.page_content[:50]}")
             logger.info(f"===================================")
 
             # 第三步：重排序（如果启用）
