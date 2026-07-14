@@ -11,6 +11,7 @@ from doc_convert.libre_office import LibreOffice
 from logger.logging import setup_logging
 from parser.document_parser import DocumentParser
 from parser.pdf_parser import PDFParser
+from util.write_file import write_file
 
 logger = setup_logging(name=f"{__name__}.OfficeParser")
 
@@ -136,15 +137,15 @@ class OfficeParser(DocumentParser):
 if __name__ == '__main__':
     office_parser = OfficeParser()
 
-    file_path = '../test_data/maven(已打印).docx'
+    file_path = '../test_data/汇视威人事管理流程.docx'
     file_name = os.path.basename(file_path)
     bytes_data = None
     with open(file_path, 'rb') as f:
         bytes_data = f.read()
 
     content = office_parser.parse(bytes_data, file_name)
-
     if content:
-        content_dir = os.path.join(os.path.dirname(file_path), f"{os.path.splitext(file_name)[0]}.md")
-        with open(content_dir, 'w', encoding='utf-8') as f:
-            f.write(content)
+        for c in content:
+            write_file(c, '../test_data/按照句子切分.txt')
+        logger.info(f"最终结果写入完成")
+

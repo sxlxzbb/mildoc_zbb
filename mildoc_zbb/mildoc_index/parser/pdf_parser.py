@@ -12,6 +12,7 @@ from pypdf import PdfReader
 from logger.logging import setup_logging
 from oss.upload_image_to_oss import UploadImageToOSS
 from parser.document_parser import DocumentParser
+from util.write_file import write_file
 
 logger = setup_logging()
 
@@ -136,7 +137,7 @@ if __name__ == '__main__':
     pdf_parse = PDFParser()
 
     data = None
-    pdf_file_path = '../test_data/MongoDB-test.pdf'
+    pdf_file_path = '../test_data/佛山电器照明股份有限公司财务管理文档.pdf'
     file_name = os.path.splitext(os.path.basename(pdf_file_path))[0]
     with open(pdf_file_path, 'rb') as f:
         data = f.read()
@@ -149,11 +150,15 @@ if __name__ == '__main__':
     # temp_dir = os.path.join(pdf_parse.temp_file_dir, 'fff65d0d-ff8f-4c75-a7ab-c721274b04d5')
     # _parse_pdf_to_markdown(data, temp_dir, file_name, upload_tool)
 
+    # 这儿得到的是切分后后的字符串list
     new_md_content = pdf_parse.parse(data, file_name)
     if new_md_content:
-        output_path = os.path.join(os.path.dirname(pdf_file_path), f'{file_name}.md')
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(new_md_content)
+        for c in new_md_content:
+            write_file(c, '../test_data/按照句子切分.txt')
+        logger.info(f"最终结果写入完成")
 
-        print(f"📄 ✅ 处理完成！输出文件: {output_path}")
+    # md_content = None
+    # with open('../test_data/汇视威人事管理流程.md', 'r', encoding='utf-8') as f:
+    #     md_content = f.read()
+    # pdf_parse.split_by_title_and_paragraph(md_content)
 

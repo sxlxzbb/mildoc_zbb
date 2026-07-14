@@ -5,7 +5,12 @@ from typing import List
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 
+from logger.logging import setup_logging
+from util.write_file import write_file
+
 load_dotenv()
+
+logger = setup_logging()
 
 """
 文档解析工具总结：
@@ -102,18 +107,24 @@ class DocumentParser(ABC):
         markdown_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=[
                 ("#", "Header 1"),
-                # ("##", "Header 2"),
-                # ("###", "Header 3"),
+                ("##", "Header 2"),
+                ("###", "Header 3"),
             ],
             strip_headers=False  # 建议保留标题在内容中，让语义更完整
         )
         md_header_document = markdown_splitter.split_text(content)
+        # logger.info("按照标题切分结果======================================")
+        # for e in md_header_document:
+        #     write_file(e.page_content, '../test_data/按照标题切分.txt')
+        # logger.info("按照标题切分结果打印结束=================================")
 
+        logger.info(f"准备按句子切分chunk_size:{self.chunk_size},chunk_overlap:{self.overlap_size}")
         # 在每个标题块内，按段落、句子切分
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,   # 根据模型和场景调整
             chunk_overlap=self.overlap_size,
-            separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?"] # 优先按段落、句子拆分
+            # separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?"] # 优先按段落、句子拆分
+            separators=["\n\n", "\n"]
         )
         final_documents = text_splitter.split_documents(md_header_document)
 
