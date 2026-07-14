@@ -50,17 +50,25 @@ def before_request():
 
 
 def _get_minio_client() -> Minio:
+    import urllib3
+    # 设置连接/读取超时，避免 MinIO 不可达时请求无限挂起导致页面一直转圈
+    http_client = urllib3.PoolManager(
+        timeout=urllib3.Timeout(connect=5, read=15),
+        retries=False,
+    )
     client = Minio(
         endpoint=MINIO_ENDPOINT,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
         secure=MINIO_USE_SSL,
         region=MINIO_REGION,
+        http_client=http_client,
     )
 
     if MINIO_USE_VIRTUAL_HOST:
         client.enable_virtual_style_endpoint()
 
+    app.logger.info('minio初始化完成...')
     return client
 
 # 初始化 Minio 客户端
@@ -127,6 +135,7 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """登录页面"""
+    app.logger.info("管理后台登录")
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -165,6 +174,7 @@ def logout():
 @login_required
 def file_browser():
     """文件浏览页面"""
+    app.logger.info("请求文件列表页")
     path = request.args.get('path', '')
     return render_template('file_browser.html', current_path=path)
 
@@ -234,8 +244,8 @@ def api_files():
         app.logger.error(f"获取文件列表失败: {str(e)}")
         if "SignatureDoesNotMatch" in str(e):
             return jsonify({'error': 'MinIO 认证失败，请检查 ACCESS_KEY 和 SECRET_KEY 配置'}), 500
-        elif "Connection" in str(e):
-            return jsonify({'error': f'无法连接到 MinIO 服务器 ({os.getenv("ENDPOINT")})，请检查网络和地址配置'}), 500
+        elif any(k in str(e) for k in ("Connection", "timed out", "Timeout", "MaxRetry")):
+            return jsonify({'error': f'无法连接到 MinIO 服务器 ({MINIO_ENDPOINT})，请检查网络和地址配置'}), 500
         else:
             return jsonify({'error': f'获取文件列表失败: {str(e)}'}), 500
 
@@ -672,7 +682,7 @@ if __name__ == '__main__':
 
     print("=" * 60)
     print("Mildoc 管理后台启动中...")
-    print(f"访问端口: {port}")
+    print(f"访问端口:{host}:{port}")
     print("=" * 60)
 
     app.run(

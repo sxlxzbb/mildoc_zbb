@@ -188,7 +188,11 @@ class RAGService:
                 api_key=Config.LLM_API_KEY,
                 base_url=Config.LLM_BASE_URL,
                 temperature=0.1,
-                max_tokens=800  # 平衡详细度和整洁性
+                max_tokens=2000,  # 平衡详细度和整洁性
+                # Qwen3 等推理模型默认开启思考(enable_thinking)，会把 max_tokens 预算
+                # 大量消耗在思考链上，导致最终答案 content 为空。
+                # 关闭思考后行为与非思考模型(qwen-plus)一致，直接输出答案。
+                extra_body={"enable_thinking": False}
             )
         except Exception as e:
             logger.error(f"大语言模型初始化失败:{e}")
