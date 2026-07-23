@@ -47,6 +47,19 @@
 - 支持进入会话欢迎语、会话状态变更、转人工等系统事件。
 - 健康检查接口 `/health`。
 
+### 模块关系图
+
+```mermaid
+flowchart LR
+    Admin[mildoc_admin<br/>管理后台] -->|上传 / 删除文档| OSS[(MinIO / OSS<br/>对象存储)]
+    Index[mildoc_index<br/>索引服务] -->|监听事件 / 全量 / 补漏| OSS
+    OSS -->|拉取文档| Index
+    Index -->|解析切片 + 向量化| Milvus[(Milvus<br/>向量库)]
+    WXKF[mildoc_wxkf<br/>客服问答] -->|检索 / 生成答案| Milvus
+    WeChat[企业微信客服] -->|用户消息| WXKF
+    WXKF -->|回调回复| WeChat
+```
+
 ---
 
 ## 三、技术架构
@@ -90,6 +103,25 @@
 - 大模型：`qwen` 系列（通过 `langchain_openai.ChatOpenAI` 调用）
 - 框架：`Flask`、`LangChain`（community / openai / milvus / text-splitters）
 - 微信：`WXBizMsgCrypt` 消息加解密、`requests` 调用企业微信 API
+
+### 架构全景图
+
+```mermaid
+flowchart TD
+    User((微信用户)) -->|提问| WeChat[企业微信服务器]
+    WeChat -->|加密回调事件| CB[mildoc_wxkf<br/>WXBizMsgCrypt 解密]
+    CB --> Sync[基于 cursor 拉取消息<br/>SQLite 去重 / 按 open_kfid 串行]
+    Sync --> RAG[RAG 问答链路]
+    RAG --> Ret1[① 混合检索<br/>稠密向量 + BM25 稀疏 · Milvus]
+    Ret1 --> Rerank[② Rerank 重排序<br/>gte-rerank-v2 / bge-reranker-v2-m3]
+    Rerank --> LLM[③ ChatOpenAI 生成<br/>qwen 系列]
+    LLM -->|回复| WeChat
+
+    Ret1 -.->|向量数据| Milvus[(Milvus)]
+    Index[mildoc_index<br/>解析 / 切片 / Embedding] -->|写入向量| Milvus
+    Admin[mildoc_admin] -->|上传文档| OSS[(MinIO / OSS)]
+    OSS -->|对象事件| Index
+```
 
 ---
 
