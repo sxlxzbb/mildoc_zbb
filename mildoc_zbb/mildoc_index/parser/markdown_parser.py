@@ -17,7 +17,7 @@ class MarkdownParser(DocumentParser):
 
             md_content = None
             # 尝试不同的编码
-            encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1']
+            encodings = ['utf-8']
             for encoding in encodings:
                 try:
                     md_content = data.decode(encoding)
